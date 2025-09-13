@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import config from 'dotenv';
 import mongoose from 'mongoose';
 import { Order, OrderStatus } from '../src/models/index.js';
 import logger from '../src/utils/logger.js';
@@ -187,7 +187,7 @@ const seedDatabase = async () => {
   }
 };
 
-
+config.config({path: '../.env'});
   seedDatabase();
 
 
