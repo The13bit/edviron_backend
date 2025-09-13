@@ -1,5 +1,6 @@
 import winston from 'winston';
 import path from 'path';
+import fs from 'fs';
 
 // Define log levels
 const levels = {
@@ -55,8 +56,28 @@ const transports = [
   }),
 ];
 
-// Add file transports only in production or when LOG_TO_FILE is enabled
-if (process.env.NODE_ENV === 'production' || process.env.LOG_TO_FILE === 'true') {
+// Helper function to check if directory can be created
+const canCreateLogDir = () => {
+  try {
+    const logsDir = path.join(process.cwd(), 'logs');
+    
+    // Check if directory exists
+    if (fs.existsSync(logsDir)) {
+      return true;
+    }
+    
+    // Try to create directory
+    fs.mkdirSync(logsDir, { recursive: true });
+    return true;
+  } catch (error) {
+    // If we can't create logs directory, log to console only
+    console.warn('Cannot create logs directory, using console logging only:', error.message);
+    return false;
+  }
+};
+
+// Add file transports only in production or when LOG_TO_FILE is enabled, and only if we can create the logs directory
+if ((process.env.NODE_ENV === 'production' || process.env.LOG_TO_FILE === 'true') && canCreateLogDir()) {
   // Create logs directory path
   const logsDir = path.join(process.cwd(), 'logs');
   
