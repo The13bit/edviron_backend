@@ -1,0 +1,498 @@
+{
+  "info": {
+    "name": "Edviron Payment API",
+    "description": "Complete API collection for Edviron Payment microservice with authentication, payments, transactions, and webhooks",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-set auth token from login response",
+          "if (pm.globals.get('authToken')) {",
+          "    pm.request.headers.add({",
+          "        key: 'Authorization',",
+          "        value: 'Bearer ' + pm.globals.get('authToken')",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.globals.set('authToken', response.data.token);",
+                  "        pm.test('Login successful and token saved', function() {",
+                  "            pm.expect(response.success).to.be.true;",
+                  "        });",
+                  "    }",
+                  "} else {",
+                  "    pm.test('Login failed', function() {",
+                  "        pm.expect(pm.response.code).to.equal(200);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@edviron.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password to get JWT token"
+          }
+        }
+      ],
+      "description": "Authentication endpoints for user login and token management"
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check API health status"
+          }
+        }
+      ],
+      "description": "API health and status endpoints"
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.order_id) {",
+                  "        pm.globals.set('orderId', response.data.order_id);",
+                  "        pm.globals.set('collectRequestId', response.data.collect_request_id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": \"SCH001\",\n  \"amount\": 1500.75,\n  \"callback_url\": \"https://school.edviron.com/payment/callback\",\n  \"custom_order_id\": \"ORD-{{$timestamp}}\",\n  \"student_info\": {\n    \"name\": \"John Doe\",\n    \"id\": \"STU001\",\n    \"email\": \"john.doe@student.com\"\n  },\n  \"trustee_id\": \"TRU001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/create-payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["create-payment"]
+            },
+            "description": "Create a new payment request"
+          }
+        }
+      ],
+      "description": "Payment creation and management endpoints"
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "Get Transaction Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction-status/ORD-SAMPLE-001",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaction-status", "ORD-SAMPLE-001"]
+            },
+            "description": "Get transaction status by custom order ID"
+          }
+        },
+        {
+          "name": "List All Transactions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transactions?page=1&limit=20&sort=createdAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Get paginated list of all transactions"
+          }
+        },
+        {
+          "name": "List School Transactions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/school/SCH001?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["transactions", "school", "SCH001"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get transactions for a specific school"
+          }
+        }
+      ],
+      "description": "Transaction status and listing endpoints"
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Payment Success Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_info\": {\n    \"order_id\": \"{{collectRequestId}}/TXN123456789\",\n    \"custom_order_id\": \"ORD-SAMPLE-001\"\n  },\n  \"payment_info\": {\n    \"status\": \"completed\",\n    \"order_amount\": 1500.75,\n    \"transaction_amount\": 1500.75,\n    \"payment_mode\": \"UPI\",\n    \"payment_details\": {\n      \"upi_id\": \"user@paytm\",\n      \"bank\": \"PAYTM\"\n    },\n    \"bank_reference\": \"BNK123456789\",\n    \"payment_message\": \"Payment successful\",\n    \"transaction_id\": \"TXN123456789\",\n    \"payment_time\": \"{{$isoTimestamp}}\",\n    \"gateway\": \"edviron\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhook"]
+            },
+            "description": "Simulate successful payment webhook from vendor"
+          }
+        },
+        {
+          "name": "Payment Failed Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_info\": {\n    \"order_id\": \"{{collectRequestId}}/TXN123456790\",\n    \"custom_order_id\": \"ORD-SAMPLE-002\"\n  },\n  \"payment_info\": {\n    \"status\": \"failed\",\n    \"order_amount\": 1000.00,\n    \"transaction_amount\": 0,\n    \"payment_mode\": \"NET_BANKING\",\n    \"payment_message\": \"Payment failed\",\n    \"error_message\": \"Insufficient funds\",\n    \"transaction_id\": \"TXN123456790\",\n    \"payment_time\": \"{{$isoTimestamp}}\",\n    \"gateway\": \"edviron\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhook"]
+            },
+            "description": "Simulate failed payment webhook from vendor"
+          }
+        }
+      ],
+      "description": "Webhook endpoints for payment notifications"
+    },
+    {
+      "name": "Examples",
+      "item": [
+        {
+          "name": "Complete Payment Flow",
+          "item": [
+            {
+              "name": "1. Login",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    const response = pm.response.json();",
+                      "    if (response.success && response.data.token) {",
+                      "        pm.globals.set('authToken', response.data.token);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"admin@edviron.com\",\n  \"password\": \"admin123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                }
+              }
+            },
+            {
+              "name": "2. Create Payment",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    const response = pm.response.json();",
+                      "    if (response.success && response.data.order_id) {",
+                      "        pm.globals.set('testOrderId', response.data.order_id);",
+                      "        pm.globals.set('testCustomOrderId', 'ORD-FLOW-' + pm.globals.get('$timestamp'));",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.globals.set('testCustomOrderId', 'ORD-FLOW-' + Date.now());"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{authToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"school_id\": \"SCH001\",\n  \"amount\": 2500.00,\n  \"callback_url\": \"https://school.edviron.com/payment/callback\",\n  \"custom_order_id\": \"{{testCustomOrderId}}\",\n  \"student_info\": {\n    \"name\": \"Alice Johnson\",\n    \"id\": \"STU002\",\n    \"email\": \"alice.johnson@student.com\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/create-payment",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["create-payment"]
+                }
+              }
+            },
+            {
+              "name": "3. Check Transaction Status",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{authToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/transaction-status/{{testCustomOrderId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["transaction-status", "{{testCustomOrderId}}"]
+                }
+              }
+            },
+            {
+              "name": "4. Simulate Payment Success",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"order_info\": {\n    \"custom_order_id\": \"{{testCustomOrderId}}\"\n  },\n  \"payment_info\": {\n    \"status\": \"completed\",\n    \"order_amount\": 2500.00,\n    \"transaction_amount\": 2500.00,\n    \"payment_mode\": \"CARD\",\n    \"payment_details\": {\n      \"card_type\": \"VISA\",\n      \"last4\": \"1234\"\n    },\n    \"bank_reference\": \"BNK987654321\",\n    \"payment_message\": \"Payment completed successfully\",\n    \"transaction_id\": \"TXN{{$timestamp}}\",\n    \"payment_time\": \"{{$isoTimestamp}}\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/webhook",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["webhook"]
+                }
+              }
+            },
+            {
+              "name": "5. Verify Updated Status",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{authToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/transaction-status/{{testCustomOrderId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["transaction-status", "{{testCustomOrderId}}"]
+                }
+              }
+            }
+          ],
+          "description": "Complete payment flow from creation to completion"
+        }
+      ],
+      "description": "Example workflows and use cases"
+    }
+  ]
+}
