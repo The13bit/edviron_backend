@@ -4,129 +4,86 @@ const orderStatusSchema = new mongoose.Schema({
   collect_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order',
-    required: [true, 'Collect ID (Order reference) is required'],
+    required: [true, 'Order reference (collect_id) is required'],
     index: true
   },
   order_amount: {
     type: Number,
     required: [true, 'Order amount is required'],
-    min: 0
+    min: [0, 'Order amount cannot be negative']
   },
   transaction_amount: {
     type: Number,
-    min: 0
+    required: [true, 'Transaction amount is required'],
+    min: [0, 'Transaction amount cannot be negative']
   },
   payment_mode: {
     type: String,
-    trim: true
+    required: [true, 'Payment mode is required'],
+    trim: true,
   },
   payment_details: {
-    type: mongoose.Schema.Types.Mixed
+    type: String,
+    trim: true,
+    default: ''
   },
   bank_reference: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   payment_message: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   status: {
     type: String,
     required: [true, 'Status is required'],
-    enum: ['created', 'pending', 'completed', 'failed', 'cancelled', 'refunded'],
-    default: 'created'
+    trim: true,
+   
+    default: 'pending'
   },
   error_message: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   payment_time: {
     type: Date,
-    index: true
-  },
-  transaction_id: {
-    type: String,
-    trim: true,
-    index: true
-  },
-  gateway: {
-    type: String,
-    trim: true,
-    default: 'edviron'
-  },
-  vendor_data: {
-    type: mongoose.Schema.Types.Mixed
+    default: Date.now
   }
 }, {
   timestamps: true,
-  toJSON: {
-    transform: function(doc, ret) {
-      delete ret.__v;
-      return ret;
-    }
-  }
+  versionKey: false
 });
 
-// Compound indexes for efficient queries
-orderStatusSchema.index({ collect_id: 1, payment_time: -1 });
-orderStatusSchema.index({ collect_id: 1, createdAt: -1 });
-orderStatusSchema.index({ status: 1, payment_time: -1 });
-orderStatusSchema.index({ transaction_id: 1 });
+// Indexes for better query performance
+orderStatusSchema.index({ collect_id: 1 });
+orderStatusSchema.index({ status: 1 });
+orderStatusSchema.index({ payment_time: -1 });
+orderStatusSchema.index({ collect_id: 1, status: 1 });
+orderStatusSchema.index({ createdAt: -1 });
 
-// Static method to find latest status for an order
-orderStatusSchema.statics.findLatestByOrderId = function(orderId) {
-  return this.findOne({ collect_id: orderId })
-    .sort({ payment_time: -1, createdAt: -1 })
-    .populate('collect_id');
-};
-
-// Static method to find all statuses for an order
-orderStatusSchema.statics.findAllByOrderId = function(orderId) {
-  return this.find({ collect_id: orderId })
-    .sort({ payment_time: -1, createdAt: -1 })
-    .populate('collect_id');
-};
-
-// Static method to create or update order status
-orderStatusSchema.statics.upsertStatus = async function(orderId, statusData) {
-  // Check if we have a status with the same transaction_id
-  if (statusData.transaction_id) {
-    const existingStatus = await this.findOne({
-      collect_id: orderId,
-      transaction_id: statusData.transaction_id
-    });
-    
-    if (existingStatus) {
-      // Update existing status
-      Object.assign(existingStatus, statusData);
-      return existingStatus.save();
-    }
+// Pre-save middleware to update payment_time when status changes to completed
+orderStatusSchema.pre('save', function(next) {
+  if (this.isModified('status') && this.status === 'completed' && !this.payment_time) {
+    this.payment_time = new Date();
   }
-  
-  // Create new status
-  const newStatus = new this({
-    collect_id: orderId,
-    ...statusData
-  });
-  
-  return newStatus.save();
-};
+  next();
+});
 
-// Method to check if payment is successful
-orderStatusSchema.methods.isSuccessful = function() {
-  return this.status === 'completed';
-};
+// Virtual to populate order details
+orderStatusSchema.virtual('order', {
+  ref: 'Order',
+  localField: 'collect_id',
+  foreignField: '_id',
+  justOne: true
+});
 
-// Method to check if payment is pending
-orderStatusSchema.methods.isPending = function() {
-  return ['created', 'pending'].includes(this.status);
-};
-
-// Method to check if payment has failed
-orderStatusSchema.methods.hasFailed = function() {
-  return ['failed', 'cancelled'].includes(this.status);
-};
+// Ensure virtual fields are serialized
+orderStatusSchema.set('toJSON', { virtuals: true });
+orderStatusSchema.set('toObject', { virtuals: true });
 
 const OrderStatus = mongoose.model('OrderStatus', orderStatusSchema);
 

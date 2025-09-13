@@ -1,332 +1,511 @@
-# Edviron Payment API
+# Edviron Assessment API
 
-A production-ready Express.js REST microservice for managing payments, transactions, and webhook processing for educational institutions. Built with modern security practices, comprehensive validation, and vendor API integration.
+A comprehensive payment management system built with Node.js, Express.js, and MongoDB, featuring JWT authentication, role-based access control, and external payment gateway integration.
 
-## 🚀 Features
+## Table of Contents
 
-- **JWT Authentication** - Secure user authentication with role-based access control
-- **Payment Processing** - Create and manage payment requests with vendor integration
-- **Transaction Management** - Track payment status and transaction history
-- **Webhook Processing** - Handle real-time payment notifications from vendors
-- **Security** - Rate limiting, CORS, helmet, input sanitization, and XSS protection
-- **Validation** - Comprehensive input validation and sanitization
-- **Documentation** - Interactive Swagger API documentation
-- **Database** - MongoDB with Mongoose ODM and proper indexing
-- **Logging** - Structured logging with different levels
-- **Testing** - Postman collection for API testing
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [API Documentation](#api-documentation)
+- [Authentication](#authentication)
+- [Payment Flow](#payment-flow)
+- [Database Schema](#database-schema)
+- [Error Handling](#error-handling)
+- [Logging](#logging)
+- [Security](#security)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
 
-## 📋 Prerequisites
+## Overview
 
-- Node.js 18+ 
-- MongoDB Atlas account or local MongoDB instance
-- NPM or Yarn package manager
+The Edviron Assessment API is a robust backend service designed for educational institutions to manage student payments, user authentication, and transaction tracking. The system provides secure payment processing through external gateway integration with comprehensive audit trails and role-based access control.
 
-## 🛠️ Installation
+## Features
+
+### Core Functionality
+- **User Authentication & Authorization**: JWT-based authentication with role-based access control
+- **Payment Processing**: Integration with external payment gateways for secure transactions
+- **Transaction Management**: Comprehensive transaction tracking and reporting
+- **School-Based Data Isolation**: Multi-tenant architecture with school-level data segregation
+- **Audit Logging**: Detailed logging for all operations and API calls
+
+### Security Features
+- **JWT Authentication**: Secure token-based authentication
+- **Role-Based Access Control**: Admin, Trustee, Staff, and User roles
+- **Request Validation**: Input sanitization and validation
+- **Rate Limiting**: API rate limiting to prevent abuse
+- **Security Headers**: Helmet.js for security headers
+- **CORS Protection**: Configurable CORS policies
+
+### Monitoring & Reliability
+- **Health Checks**: Comprehensive system health monitoring
+- **Error Handling**: Global error handling with custom error classes
+- **Retry Logic**: Automatic retry for failed external API calls
+- **Logging**: Structured logging with Winston
+- **Database Connection Management**: Robust MongoDB connection handling
+
+## Tech Stack
+
+### Backend
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JSON Web Tokens (JWT)
+- **Password Hashing**: bcryptjs
+- **HTTP Client**: Axios
+
+### Security & Middleware
+- **Helmet.js**: Security headers
+- **CORS**: Cross-origin resource sharing
+- **Express Rate Limit**: API rate limiting
+- **Express Mongo Sanitize**: NoSQL injection prevention
+- **Express Validator**: Request validation
+
+### Utilities
+- **Winston**: Logging
+- **Day.js**: Date manipulation
+- **Compression**: Response compression
+- **Cookie Parser**: Cookie parsing middleware
+
+## Prerequisites
+
+- Node.js (v18.0.0 or higher)
+- MongoDB (v5.0 or higher)
+- npm or yarn package manager
+
+## Installation
 
 1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd edviron-assessment
-```
+   ```bash
+   git clone <repository-url>
+   cd edviron-assesment
+   ```
 
 2. **Install dependencies**
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
-3. **Environment Setup**
-```bash
-# Copy the example environment file
-cp .env.example .env
-```
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
 
-4. **Configure Environment Variables**
-Edit `.env` file with your actual values:
+4. **Configure environment variables** (see [Configuration](#configuration))
 
+5. **Start the application**
+   ```bash
+   # Development mode
+   npm run dev
+   
+   # Production mode
+   npm start
+   ```
+
+## Configuration
+
+Create a `.env` file in the root directory with the following variables:
+
+### Database Configuration
 ```env
-# Server Configuration
-PORT=3000
-NODE_ENV=development
-
-# Database
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/edviron?retryWrites=true&w=majority
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_EXPIRES_IN=1d
-
-# CORS Configuration
-CORS_ORIGIN=*
-
-# Logging
-LOG_LEVEL=info
-
-# Vendor API Configuration
-VENDOR_BASE_URL=https://dev-vanilla.edviron.com
-VENDOR_API_KEY=your-vendor-api-key
-PG_JWT_SECRET=your-payment-gateway-signing-secret
+MONGO_URI=mongodb://localhost:27017/edviron_assessment
 ```
 
-## 🗃️ Database Setup
+### JWT Configuration
+```env
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=7d
+JWT_COOKIE_EXPIRES_IN=7
+```
 
-1. **Seed the database** with sample data:
+### Payment Gateway Configuration
+```env
+PAYMENT_API_BASE_URL=https://api.paymentgateway.com
+PAYMENT_API_KEY=your-payment-api-key
+PAYMENT_CLIENT_KEY=your-payment-client-key
+PAYMENT_SECRET_KEY=your-payment-secret-key
+SCHOOL_ID=your-school-id
+```
+
+### Server Configuration
+```env
+NODE_ENV=development
+PORT=4000
+```
+
+### Logging Configuration
+```env
+LOG_LEVEL=info
+```
+
+## API Documentation
+
+### Base URL
+```
+http://localhost:4000/api
+```
+
+### Authentication Endpoints
+
+#### Register User
+```http
+POST /auth/register
+Content-Type: application/json
+
+{
+  "username": "user123",
+  "email": "user@example.com",
+  "password": "password123",
+  "role": "user"
+}
+```
+
+#### Login
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+#### Get Current User
+```http
+GET /auth/me
+Authorization: Bearer <jwt-token>
+```
+
+#### Update Profile
+```http
+PATCH /auth/updateMe
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "username": "newusername",
+  "email": "newemail@example.com"
+}
+```
+
+#### Update Password
+```http
+PATCH /auth/updatePassword
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "passwordCurrent": "currentpassword",
+  "password": "newpassword",
+  "passwordConfirm": "newpassword"
+}
+```
+
+### Payment Endpoints
+
+#### Create Payment
+```http
+POST /payments/create-payment
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+
+{
+  "amount": "1500",
+  "callback_url": "https://yourapp.com/payment-success",
+  "student_info": {
+    "name": "John Doe",
+    "id": "STU001",
+    "email": "john.doe@email.com"
+  },
+  "gateway_name": "razorpay",
+  "trustee_id": "65b0e552dd31950a9b41c5ba"
+}
+```
+
+#### Check Payment Status
+```http
+GET /payments/status/{collect_request_id}?order_id={order_id}
+Authorization: Bearer <jwt-token>
+```
+
+#### Get All Transactions
+```http
+GET /payments/transactions
+Authorization: Bearer <jwt-token>
+```
+
+#### Get Transactions by School
+```http
+GET /payments/transactions/school/{school_id}
+Authorization: Bearer <jwt-token>
+```
+
+### System Endpoints
+
+#### Health Check
+```http
+GET /health
+```
+
+#### API Health Check
+```http
+GET /api/health
+```
+
+## Authentication
+
+The API uses JWT (JSON Web Tokens) for authentication. After successful login, a token is returned that must be included in the `Authorization` header for protected routes.
+
+### Token Format
+```
+Authorization: Bearer <jwt-token>
+```
+
+### User Roles
+- **admin**: Full system access
+- **trustee**: School-specific data access
+- **staff**: Limited operational access
+- **user**: Basic user operations
+
+### Token Lifecycle
+- **Expiration**: 7 days (configurable)
+- **Refresh**: Manual re-login required
+- **Storage**: Secure HTTP-only cookies (optional)
+
+## Payment Flow
+
+### 1. Payment Creation
+1. Client sends payment request with student details
+2. System validates request and user permissions
+3. External payment gateway request is created
+4. Payment URL is returned to client
+
+### 2. Payment Processing
+1. User is redirected to payment gateway
+2. Payment gateway processes the transaction
+3. Gateway sends callback to configured URL
+4. System updates payment status
+
+### 3. Status Tracking
+1. Payment status can be checked via API
+2. Transaction history is maintained
+3. Audit logs are created for all operations
+
+## Database Schema
+
+### User Schema
+```javascript
+{
+  username: String (required, unique),
+  email: String (required, unique),
+  password: String (required, hashed),
+  role: String (enum: ['admin', 'trustee', 'staff', 'user']),
+  trustee_id: ObjectId (required for trustees),
+  school_id: ObjectId (required for trustees),
+  isActive: Boolean (default: true),
+  lastLogin: Date,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Order Schema
+```javascript
+{
+  order_id: String (required, unique),
+  amount: Number (required),
+  callback_url: String (required),
+  student_info: {
+    name: String (required),
+    id: String (required),
+    email: String (required)
+  },
+  gateway_name: String (required),
+  school_id: String (required),
+  trustee_id: String (required),
+  payment_url: String,
+  collect_request_id: String,
+  status: String (enum: ['pending', 'processing', 'completed', 'failed']),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### OrderStatus Schema
+```javascript
+{
+  order_id: String (required),
+  collect_request_id: String (required),
+  status: String (required),
+  amount: Number,
+  currency: String,
+  payment_method: String,
+  gateway_response: Object,
+  error_details: Object,
+  processed_at: Date,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+## Error Handling
+
+The API implements comprehensive error handling with custom error classes and global error middleware.
+
+### Error Response Format
+```json
+{
+  "status": "error",
+  "message": "Error description",
+  "statusCode": 400,
+  "isOperational": true,
+  "stack": "Error stack trace (development only)"
+}
+```
+
+### Common Error Codes
+- **400**: Bad Request - Invalid input data
+- **401**: Unauthorized - Authentication required
+- **403**: Forbidden - Insufficient permissions
+- **404**: Not Found - Resource not found
+- **429**: Too Many Requests - Rate limit exceeded
+- **500**: Internal Server Error - System error
+
+## Logging
+
+The application uses Winston for structured logging with multiple log levels and outputs.
+
+### Log Levels
+- **error**: Error conditions
+- **warn**: Warning conditions
+- **info**: Informational messages
+- **debug**: Debug-level messages
+
+### Log Outputs
+- **Console**: Development environment
+- **File**: Production environment
+- **Combined**: All log levels
+- **Error**: Error-only logs
+
+### Log Format
+```json
+{
+  "timestamp": "2025-09-13T10:30:00.000Z",
+  "level": "info",
+  "message": "Request processed",
+  "meta": {
+    "method": "POST",
+    "url": "/api/payments/create-payment",
+    "statusCode": 201,
+    "responseTime": "150ms"
+  }
+}
+```
+
+## Security
+
+### Security Measures Implemented
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcryptjs with salt rounds
+- **Input Validation**: Express-validator for request validation
+- **NoSQL Injection Prevention**: Express-mongo-sanitize
+- **Rate Limiting**: Configurable rate limits per endpoint
+- **Security Headers**: Helmet.js for security headers
+- **CORS Configuration**: Configurable CORS policies
+- **Environment Variables**: Sensitive data in environment variables
+
+### Security Best Practices
+- Regular password updates
+- Strong JWT secrets
+- HTTPS in production
+- Regular security updates
+- Audit logging
+- Access control reviews
+
+## Testing
+
+### Manual Testing
+Use the provided Postman collection in the `postman/` directory:
+1. Import `Edviron_Assessment_API.postman_collection.json`
+2. Import `Edviron_Assessment_Development.postman_environment.json`
+3. Run the collection tests
+
+### Testing Endpoints
+- **Health Check**: Verify system status
+- **Error Test**: Test error handling
+- **Authentication Flow**: Complete auth workflow
+- **Payment Flow**: End-to-end payment testing
+
+## Deployment
+
+
+### Environment Variables for Production
+```env
+NODE_ENV=production
+PORT=4000
+MONGO_URI=mongodb://production-host:27017/edviron_production
+JWT_SECRET=strong-production-secret
+PAYMENT_API_BASE_URL=https://api.paymentgateway.com
+# ... other production configs
+```
+
+## API Scripts
+
+### Available Scripts
 ```bash
+# Start development server with hot reload
+npm run dev
+
+# Start production server
+npm start
+
+# Seed database with sample data
 npm run seed
 ```
 
-This creates:
-- Admin user: `admin@edviron.com` / `admin123`
-- School users: `school@demo.com` / `school123`
-- Sample orders and transactions
+## Contributing
 
-## 🚀 Running the Application
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-### Development Mode
-```bash
-npm run dev
-```
+### Code Standards
+- Use ES6+ features
+- Follow ESLint configuration
+- Write descriptive commit messages
+- Add JSDoc comments for functions
+- Maintain test coverage
 
-### Production Mode
-```bash
-npm start
-```
-
-The server will start on `http://localhost:3000`
-
-## 📚 API Documentation
-
-Once the server is running, visit:
-- **Swagger Documentation**: `http://localhost:3000/docs`
-- **Health Check**: `http://localhost:3000/health`
-
-## 🔧 API Endpoints
-
-### Authentication
-- `POST /auth/login` - User login
-
-### Payments
-- `POST /create-payment` - Create new payment request
-
-### Transactions
-- `GET /transaction-status/:custom_order_id` - Get transaction status
-- `GET /transactions` - List all transactions (paginated)
-- `GET /transactions/school/:schoolId` - List school transactions
-
-### Webhooks
-- `POST /webhook` - Receive payment notifications (public endpoint)
-
-### Utilities
-- `GET /health` - API health check
-- `GET /` - API information
-
-## 🧪 Testing with Postman
-
-1. **Import Collection**
-   - Import `docs/Edviron.postman_collection.json` into Postman
-   - Set the `baseUrl` variable to `http://localhost:3000`
-
-2. **Authentication Flow**
-   - Use the "Login" request to get JWT token
-   - Token is automatically saved for subsequent requests
-
-3. **Complete Payment Flow**
-   - Run the "Complete Payment Flow" folder for end-to-end testing
-
-## 🔐 Authentication & Authorization
-
-### User Roles
-- **Admin**: Full access to all endpoints and data
-- **School**: Access to own school's data only
-- **Trustee**: Access to own school's data only
-
-### JWT Token
-- Include in requests as `Authorization: Bearer <token>`
-- Tokens expire in 1 day (configurable)
-- Automatic token extraction and validation
-
-## 📊 Database Models
-
-### User
-- Email, password (hashed), role, school_id
-- Supports admin, school, and trustee roles
-
-### Order
-- School ID, student info, payment details
-- Unique custom order ID, collect request ID
-- Amount, callback URL, status tracking
-
-### OrderStatus
-- Links to Order, tracks payment progression
-- Transaction amounts, payment modes, timestamps
-- Bank references, error messages
-
-### WebhookLog
-- Raw and parsed webhook payloads
-- Processing status and retry logic
-- Automatic cleanup after 90 days
-
-## 🛡️ Security Features
-
-- **Rate Limiting**: 100 requests/15min general, 5 requests/15min for auth
-- **CORS**: Configurable origin restrictions
-- **Helmet**: Security headers protection
-- **Input Sanitization**: MongoDB injection and XSS protection
-- **JWT**: Secure authentication with configurable expiration
-- **Password Hashing**: bcrypt with salt rounds
-
-## 🔄 Vendor Integration
-
-The service integrates with payment vendors through:
-
-1. **Request Signing**: JWT-based payload signing for security
-2. **Create Collect Request**: Initiates payment with vendor
-3. **Status Polling**: Retrieves updated payment status
-4. **Webhook Processing**: Handles real-time notifications
-
-## 📝 Logging
-
-Structured logging with different levels:
-- **Error**: System errors and failures
-- **Warn**: Warning conditions
-- **Info**: General information (default)
-- **Debug**: Detailed debugging information
-
-## 🚀 Deployment
-
-### Environment Variables
-Ensure all required environment variables are set:
-```bash
-# Required in production
-MONGODB_URI
-JWT_SECRET
-VENDOR_API_KEY
-PG_JWT_SECRET
-```
-
-### Railway Deployment
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Deploy
-railway login
-railway link
-railway up
-```
-
-### Render Deployment
-1. Connect your GitHub repository
-2. Set environment variables in dashboard
-3. Deploy with build command: `npm install`
-4. Start command: `npm start`
-
-### Production Considerations
-- Use strong, unique secrets for JWT and PG signing
-- Configure CORS_ORIGIN for specific domains
-- Set NODE_ENV=production
-- Use MongoDB Atlas with proper network restrictions
-- Enable database connection pooling
-- Set up monitoring and error tracking
-
-## 🏗️ Project Structure
-
-```
-├── src/
-│   ├── config/          # Configuration files
-│   ├── controllers/     # Route controllers (optional)
-│   ├── docs/           # API documentation
-│   ├── middlewares/    # Express middlewares
-│   ├── models/         # Mongoose models
-│   ├── routes/         # API routes
-│   ├── services/       # Business logic services
-│   ├── utils/          # Utility functions
-│   ├── app.js          # Express application
-│   └── server.js       # Server entry point
-├── scripts/
-│   └── seed.js         # Database seeding
-├── docs/
-│   └── Edviron.postman_collection.json
-├── .env.example        # Environment template
-├── .gitignore
-└── package.json
-```
-
-## 🤝 Development
-
-### Code Style
-- ESM modules (import/export)
-- Async/await for asynchronous operations
-- Comprehensive error handling
-- Input validation on all endpoints
-- Structured logging throughout
-
-### Adding New Features
-1. Create appropriate models in `src/models/`
-2. Add routes in `src/routes/`
-3. Implement business logic in `src/services/`
-4. Add validation middleware
-5. Update Swagger documentation
-6. Add Postman collection requests
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Failed**
-   - Verify MONGODB_URI is correct
-   - Check network connectivity
-   - Ensure MongoDB Atlas IP whitelist includes your IP
-
-2. **Authentication Errors**
-   - Verify JWT_SECRET is set
-   - Check token expiration
-   - Ensure proper Authorization header format
-
-3. **Vendor API Errors**
-   - Verify VENDOR_API_KEY and PG_JWT_SECRET
-   - Check vendor API endpoint availability
-   - Review request signing implementation
-
-4. **Port Already in Use**
-   - Change PORT in .env file
-   - Kill existing process: `lsof -ti:3000 | xargs kill -9`
-
-### Debug Mode
-Set `LOG_LEVEL=debug` in `.env` for detailed logging.
-
-## 📈 Performance
-
-- Database indexes on frequently queried fields
-- Connection pooling with MongoDB
-- Request rate limiting
-- Compression middleware
-- Efficient aggregation queries for transactions
-
-## 🔒 Security Checklist
-
-- ✅ Environment variables for sensitive data
-- ✅ JWT token-based authentication
-- ✅ Password hashing with bcrypt
-- ✅ Input validation and sanitization
-- ✅ Rate limiting on sensitive endpoints
-- ✅ CORS configuration
-- ✅ Security headers with Helmet
-- ✅ MongoDB injection protection
-- ✅ XSS protection
-- ✅ Error message sanitization
-
-## 📄 License
-
-MIT License - feel free to use this project for educational or commercial purposes.
-
-## 🆘 Support
+## Support
 
 For issues and questions:
-1. Check this README for common solutions
-2. Review the API documentation at `/docs`
-3. Test with the provided Postman collection
-4. Check application logs for error details
+1. Check the logs for error details
+2. Verify environment configuration
+3. Test with Postman collection
+4. Review API documentation
 
----
+## License
 
-**Built with ❤️ using Express.js, MongoDB, and modern security practices.**
+This project is licensed under the ISC License.
+
+## Frontend Dashboard
+
+The repository includes a React + Vite + Tailwind CSS dashboard under `../frontend` that provides:
+- Transactions overview (pagination, search, multi-select status & school filters, date range filters, sorting, URL state persistence)
+- School-specific transactions view
+- Transaction status check interface
+- Real-time visualization with polling, metrics, and distribution display
+- Dark mode with persisted user preference
+
+Optional environment variable for dashboard:
+`VITE_API_BASE_URL` (defaults to http://localhost:4000/api if unset).
+
+Run dashboard from the `frontend` directory with existing npm scripts.

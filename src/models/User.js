@@ -2,31 +2,54 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
+  username: {
+    type: String,
+    required: [true, 'Username is required'],
+    unique: true,
+    trim: true,
+    minLength: [3, 'Username must be at least 3 characters long'],
+    maxLength: [50, 'Username cannot exceed 50 characters']
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],
     unique: true,
-    lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    lowercase: true,
+    validate: {
+      validator: function(email) {
+        return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email);
+      },
+      message: 'Please enter a valid email address'
+    }
   },
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: 6
+    minLength: [6, 'Password must be at least 6 characters long'],
+    select: false // Don't include password in queries by default
   },
   role: {
     type: String,
-    enum: ['admin', 'school', 'trustee'],
-    default: 'school',
-    required: true
+    enum: {
+      values: ['admin', 'trustee', 'staff', 'user'],
+      message: 'Role must be one of: admin, trustee, staff, user'
+    },
+    default: 'user'
+  },
+  trustee_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: function() {
+      return this.role === 'trustee' || this.role === 'staff';
+    },
+    index: true
   },
   school_id: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
     required: function() {
-      return this.role === 'school' || this.role === 'trustee';
+      return this.role === 'trustee' || this.role === 'staff';
     },
-    trim: true
+    index: true
   },
   isActive: {
     type: Boolean,
@@ -34,58 +57,66 @@ const userSchema = new mongoose.Schema({
   },
   lastLogin: {
     type: Date
+  },
+  passwordChangedAt: {
+    type: Date
   }
 }, {
   timestamps: true,
-  toJSON: {
-    transform: function(doc, ret) {
-      delete ret.passwordHash;
-      delete ret.__v;
-      return ret;
-    }
-  }
+  versionKey: false
 });
 
-// Indexes
+// Indexes for better query performance
+userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
-userSchema.index({ school_id: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ school_id: 1, role: 1 });
+userSchema.index({ trustee_id: 1, role: 1 });
 
-// Hash password before saving
+// Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
+  // Only run this function if password was actually modified
   if (!this.isModified('password')) return next();
-  
-  try {
-    // Hash password with cost of 12
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+
+  // Hash the password with cost of 12
+  this.password = await bcrypt.hash(this.password, 12);
+
+  // Set password changed timestamp
+  if (!this.isNew) {
+    this.passwordChangedAt = new Date(Date.now() - 1000); // Subtract 1 second to ensure token is created after password change
   }
+
+  next();
 });
 
-// Method to check password
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+// Instance method to check password
+userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
+  return await bcrypt.compare(candidatePassword, userPassword);
 };
 
-// Method to update last login
-userSchema.methods.updateLastLogin = function() {
+// Instance method to check if password changed after JWT was issued
+userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
+    return JWTTimestamp < changedTimestamp;
+  }
+  
+  // False means NOT changed
+  return false;
+};
+
+// Instance method to update last login
+userSchema.methods.updateLastLogin = async function() {
   this.lastLogin = new Date();
-  return this.save({ validateBeforeSave: false });
+  await this.save({ validateBeforeSave: false });
 };
 
-// Static method to find user by email
-userSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email: email.toLowerCase(), isActive: true });
-};
-
-// Static method to create user with hashed password
-userSchema.statics.createUser = async function(userData) {
-  const user = new this(userData);
-  return user.save();
+// Transform output to remove sensitive fields
+userSchema.methods.toJSON = function() {
+  const userObject = this.toObject();
+  delete userObject.password;
+  delete userObject.passwordChangedAt;
+  return userObject;
 };
 
 const User = mongoose.model('User', userSchema);
